@@ -218,6 +218,12 @@ jobs:
             --severity CRITICAL,HIGH,MEDIUM \
             trivy_raw_results.json || TRIVY_MEDIUM_OR_HIGHER_STATUS=$?
 
+          # Generate SARIF output for GitHub Security tab
+          trivy convert \
+            --format sarif \
+            -o "trivy_code_scan_qemu.sarif" \
+            trivy_raw_results.json
+
           # Summarize results on github for quick access
           echo "# Trivy QEMU Scan Results" >> $GITHUB_STEP_SUMMARY
 
@@ -252,6 +258,14 @@ jobs:
           name: trivy-qemu-results
           path: |
               workspace/qemu-9.1.0/trivy_code_scan_qemu.html
+
+      - name: Upload Trivy scan results to GitHub Security tab
+        # Only upload main-branch builds to the Security tab
+        if: ${{ env.WORKFLOW_IS_MAIN == 'true' }}
+        # upload-sarif@v3.29.2 released 2025 June 30. SHA pinned for enhanced security
+        uses: github/codeql-action/upload-sarif@181d5eefc20863364f96762470ba6f862bdef56b
+        with:
+          sarif_file: 'workspace/qemu-9.1.0/trivy_code_scan_qemu.sarif'
 
       - name: ClamAV QEMU Antivirus Scan
         shell: bash
@@ -598,6 +612,12 @@ jobs:
               --severity CRITICAL,HIGH,MEDIUM \
               "${IMAGE_NAME}_raw_results.json" || TRIVY_MEDIUM_OR_HIGHER_STATUS=$?
 
+            # Generate SARIF output for GitHub Security tab
+            trivy convert \
+              --format sarif \
+              -o "${IMAGE_NAME}.sarif" \
+              "${IMAGE_NAME}_raw_results.json"
+
             # Generate SPDX JSON file
             trivy image --quiet --format spdx-json --output "${IMAGE_NAME}.spdx.json" "$DOCKER_IMAGE"
 
@@ -654,6 +674,20 @@ jobs:
             workspace/kubevirt-trivy/virt-handler.spdx.json
             workspace/kubevirt-trivy/virt-launcher.spdx.json
             workspace/kubevirt-trivy/virt-operator.spdx.json
+
+      - name: Upload Trivy SARIF Results to GitHub Security Tab
+        # Only upload main-branch builds to the Security tab
+        if: ${{ env.WORKFLOW_IS_MAIN == 'true' }}
+        # upload-sarif@v3.29.2 released 2025 June 30. SHA pinned for enhanced security
+        uses: github/codeql-action/upload-sarif@181d5eefc20863364f96762470ba6f862bdef56b
+        with:
+          sarif_file: |
+            workspace/kubevirt-trivy/sidecar-shim.sarif
+            workspace/kubevirt-trivy/virt-api.sarif
+            workspace/kubevirt-trivy/virt-controller.sarif
+            workspace/kubevirt-trivy/virt-handler.sarif
+            workspace/kubevirt-trivy/virt-launcher.sarif
+            workspace/kubevirt-trivy/virt-operator.sarif
 
       - name: Evaluate Scan Results
         shell: bash
